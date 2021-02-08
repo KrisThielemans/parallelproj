@@ -31,8 +31,8 @@ lib_parallelproj_cuda.texture_test.argtypes = [ar_1d_single, ar_1d_single, ar_1d
 #-------------------------------------------------------------------------------------------------------
 
 
-img = np.zeros((100,100,100), dtype = np.float32)
-img[20:80,20:80,20:80] = 1
+img = np.random.rand(100,110,120).astype(np.float32)
+img[20:50,40:80,80:100] = 1
 
 out   = np.zeros(img.shape, dtype = np.float32).flatten()
 shape = np.array(img.shape)

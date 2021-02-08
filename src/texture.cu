@@ -17,13 +17,17 @@ __global__ void transformKernel(cudaTextureObject_t texObj,
   {
     if(i1 < n1)
     {
-      t0 = 0.708*i0 + 0.707*i1;
-      t1 = 0.708*i0 - 0.707*i1;
+      //t0 = 0.708*i0 + 0.707*i1;
+      //t1 = 0.708*i0 - 0.707*i1;
+
+      t0 = (float)i0;
+      t1 = (float)i1;
 
       for(unsigned int i2 = 0; i2 < n2; i2++)
       {
-        t2 = i2 + 0.f;
-        output[i0*n1*n2 + i1*n2 + i2] = tex3D<float>(texObj, t0, t1, t2);
+        t2 = (float)i2;
+        //output[i0*n1*n2 + i1*n2 + i2] = tex3D<float>(texObj, t0, t1, t2);
+        output[i0 + i1*n0 + i2*n0*n1] = tex3D<float>(texObj, t0, t1, t2);
       }
     }
   }
