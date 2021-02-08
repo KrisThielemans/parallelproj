@@ -6,6 +6,7 @@
 #include<stdlib.h>
 
 #include "ray_cube_intersection_cuda.h"
+#include "utils_cuda.h"
 
 /** @brief 3D non-tof joseph forward projector CUDA kernel
  *
@@ -13,8 +14,8 @@
  *                The start coordinates of the n-th LOR are at xstart[n*3 + i] with i = 0,1,2 
  *  @param xend   array of shape [3*nlors] with the coordinates of the end   points of the LORs.
  *                The start coordinates of the n-th LOR are at xstart[n*3 + i] with i = 0,1,2 
- *  @param img    array of shape [n0*n1*n2] containing the 3D image to be projected.
- *                The pixel [i,j,k] ist stored at [n1*n2+i + n2*k + j].
+ *  @param img    cuda texture object containing the image
+ *                for a c-contiguous array the elemet [i,j,k] is at [k+0.5,j+0.5,i+0.5]
  *  @param img_origin  array [x0_0,x0_1,x0_2] of coordinates of the center of the [0,0,0] voxel
  *  @param voxsize     array [vs0, vs1, vs2] of the voxel sizes
  *  @param p           array of length nlors (output) used to store the projections
@@ -23,7 +24,7 @@
  */
 __global__ void joseph3d_fwd_cuda_kernel(float *xstart, 
                                          float *xend, 
-                                         float *img,
+                                         cudaTextureObject_t img,
                                          float *img_origin, 
                                          float *voxsize, 
                                          float *p,
@@ -42,10 +43,7 @@ __global__ void joseph3d_fwd_cuda_kernel(float *xstart,
     float lsq, cos0_sq, cos1_sq, cos2_sq;
     unsigned short direction; 
     int i0, i1, i2;
-    int i0_floor, i1_floor, i2_floor;
-    int i0_ceil, i1_ceil, i2_ceil;
     float x_pr0, x_pr1, x_pr2;
-    float tmp_0, tmp_1, tmp_2;
 
     float toAdd, cf;
 
@@ -137,35 +135,9 @@ __global__ void joseph3d_fwd_cuda_kernel(float *xstart,
           x_pr1 = xstart1 + (img_origin0 + i0*voxsize0 - xstart0)*d1 / d0;
           x_pr2 = xstart2 + (img_origin0 + i0*voxsize0 - xstart0)*d2 / d0;
   
-          i1_floor = (int)floor((x_pr1 - img_origin1)/voxsize1);
-          i1_ceil  = i1_floor + 1;
-  
-          i2_floor = (int)floor((x_pr2 - img_origin2)/voxsize2);
-          i2_ceil  = i2_floor + 1; 
-  
-          // calculate the distances to the floor normalized to [0,1]
-          // for the bilinear interpolation
-          tmp_1 = (x_pr1 - (i1_floor*voxsize1 + img_origin1)) / voxsize1;
-          tmp_2 = (x_pr2 - (i2_floor*voxsize2 + img_origin2)) / voxsize2;
-
-          toAdd = 0;
-
-          if ((i1_floor >= 0) && (i1_floor < n1) && (i2_floor >= 0) && (i2_floor < n2))
-          {
-            toAdd += img[n1*n2*i0 + n2*i1_floor + i2_floor] * (1 - tmp_1) * (1 - tmp_2);
-          }
-          if ((i1_ceil >= 0) && (i1_ceil < n1) && (i2_floor >= 0) && (i2_floor < n2))
-          {
-            toAdd += img[n1*n2*i0 + n2*i1_ceil + i2_floor] * tmp_1 * (1 - tmp_2);
-          }
-          if ((i1_floor >= 0) && (i1_floor < n1) && (i2_ceil >= 0) && (i2_ceil < n2))
-          {
-            toAdd += img[n1*n2*i0 + n2*i1_floor + i2_ceil] * (1 - tmp_1) * tmp_2;
-          }
-          if ((i1_ceil >= 0) && (i1_ceil < n1) && (i2_ceil >= 0) && (i2_ceil < n2))
-          {
-            toAdd += img[n1*n2*i0 + n2*i1_ceil + i2_ceil] * tmp_1 * tmp_2;
-          }
+          // texture memory to get interpolated value
+          // don't forget to add the 0.5f voxel offset
+          toAdd = tex3D<float>(img, ((x_pr2 - img_origin2)/voxsize2) + 0.5f, ((x_pr1 - img_origin1)/voxsize1) + 0.5f, float(i0) + 0.5f);
 
           if(toAdd != 0){p[i] += (cf * toAdd);}
         }
@@ -201,35 +173,9 @@ __global__ void joseph3d_fwd_cuda_kernel(float *xstart,
           x_pr0 = xstart0 + (img_origin1 + i1*voxsize1 - xstart1)*d0 / d1;
           x_pr2 = xstart2 + (img_origin1 + i1*voxsize1 - xstart1)*d2 / d1;
   
-          i0_floor = (int)floor((x_pr0 - img_origin0)/voxsize0);
-          i0_ceil  = i0_floor + 1; 
-  
-          i2_floor = (int)floor((x_pr2 - img_origin2)/voxsize2);
-          i2_ceil  = i2_floor + 1;
-  
-          // calculate the distances to the floor normalized to [0,1]
-          // for the bilinear interpolation
-          tmp_0 = (x_pr0 - (i0_floor*voxsize0 + img_origin0)) / voxsize0;
-          tmp_2 = (x_pr2 - (i2_floor*voxsize2 + img_origin2)) / voxsize2;
-
-          toAdd = 0;
-
-          if ((i0_floor >= 0) && (i0_floor < n0) && (i2_floor >= 0) && (i2_floor < n2))
-          {
-            toAdd += img[n1*n2*i0_floor + n2*i1 + i2_floor] * (1 - tmp_0) * (1 - tmp_2);
-          }
-          if ((i0_ceil >= 0) && (i0_ceil < n0) && (i2_floor >= 0) && (i2_floor < n2))
-          {
-            toAdd += img[n1*n2*i0_ceil + n2*i1 + i2_floor] * tmp_0 * (1 - tmp_2);
-          }
-          if ((i0_floor >= 0) && (i0_floor < n0) && (i2_ceil >= 0) && (i2_ceil < n2))
-          {
-            toAdd += img[n1*n2*i0_floor + n2*i1 + i2_ceil] * (1 - tmp_0) * tmp_2;
-          }
-          if ((i0_ceil >= 0) && (i0_ceil < n0) && (i2_ceil >= 0) && (i2_ceil < n2))
-          {
-            toAdd += img[n1*n2*i0_ceil + n2*i1 + i2_ceil] * tmp_0 * tmp_2;
-          }
+          // texture memory to get interpolated value
+          // don't forget to add the 0.5f voxel offset
+          toAdd = tex3D<float>(img, ((x_pr2 - img_origin2)/voxsize2) + 0.5f, (float)i1 + 0.5f, ((x_pr0 - img_origin0)/voxsize0) + 0.5f);
 
           if(toAdd != 0){p[i] += (cf * toAdd);}
         }
@@ -265,35 +211,9 @@ __global__ void joseph3d_fwd_cuda_kernel(float *xstart,
           x_pr0 = xstart0 + (img_origin2 + i2*voxsize2 - xstart2)*d0 / d2;
           x_pr1 = xstart1 + (img_origin2 + i2*voxsize2 - xstart2)*d1 / d2;
   
-          i0_floor = (int)floor((x_pr0 - img_origin0)/voxsize0);
-          i0_ceil  = i0_floor + 1;
-  
-          i1_floor = (int)floor((x_pr1 - img_origin1)/voxsize1);
-          i1_ceil  = i1_floor + 1; 
-  
-          // calculate the distances to the floor normalized to [0,1]
-          // for the bilinear interpolation
-          tmp_0 = (x_pr0 - (i0_floor*voxsize0 + img_origin0)) / voxsize0;
-          tmp_1 = (x_pr1 - (i1_floor*voxsize1 + img_origin1)) / voxsize1;
-
-          toAdd = 0;
-
-          if ((i0_floor >= 0) && (i0_floor < n0) && (i1_floor >= 0) && (i1_floor < n1))
-          {
-            toAdd += img[n1*n2*i0_floor + n2*i1_floor + i2] * (1 - tmp_0) * (1 - tmp_1);
-          }
-          if ((i0_ceil >= 0) && (i0_ceil < n0) && (i1_floor >= 0) && (i1_floor < n1))
-          {
-            toAdd += img[n1*n2*i0_ceil + n2*i1_floor + i2] * tmp_0 * (1 - tmp_1);
-          }
-          if ((i0_floor >= 0) && (i0_floor < n0) && (i1_ceil >= 0) & (i1_ceil < n1))
-          {
-            toAdd += img[n1*n2*i0_floor + n2*i1_ceil + i2] * (1 - tmp_0) * tmp_1;
-          }
-          if ((i0_ceil >= 0) && (i0_ceil < n0) && (i1_ceil >= 0) && (i1_ceil < n1))
-          {
-            toAdd += img[n1*n2*i0_ceil + n2*i1_ceil + i2] * tmp_0 * tmp_1;
-          }
+          // texture memory to get interpolated value
+          // don't forget to add the 0.5f voxel offset
+          toAdd = tex3D<float>(img, (float)i2 + 0.5f, ((x_pr1 - img_origin1)/voxsize1) + 0.5f, ((x_pr0 - img_origin0)/voxsize0) + 0.5f);
 
           if(toAdd != 0){p[i] += (cf * toAdd);}
         }
@@ -344,11 +264,6 @@ extern "C" void joseph3d_fwd_cuda(float *h_xstart,
   // number of projections to be calculated on a device
   long long dev_nlors;
 
-  int n0 = h_img_dim[0];
-  int n1 = h_img_dim[1];
-  int n2 = h_img_dim[2];
-
-  long long img_bytes = (n0*n1*n2)*sizeof(float);
   long long proj_bytes_dev;
 
   // get number of avilable CUDA devices specified as <=0 in input
@@ -358,10 +273,18 @@ extern "C" void joseph3d_fwd_cuda(float *h_xstart,
   float **d_p              = new float * [num_devices];
   float **d_xstart         = new float * [num_devices];
   float **d_xend           = new float * [num_devices];
-  float **d_img            = new float * [num_devices];
   float **d_img_origin     = new float * [num_devices];
   float **d_voxsize        = new float * [num_devices];
   int   **d_img_dim        = new int * [num_devices];
+
+
+
+  // create texture 3D cuda array and texture object
+  cudaTextureObject_t *texImg = new cudaTextureObject_t[num_devices];
+  cudaArray **d_cuArrTex = new cudaArray*[num_devices];
+  CreateTextureInterp(h_img, h_img_dim, d_cuArrTex, texImg, true, num_devices);
+
+
 
   // we split the projections across all CUDA devices
   for (int i_dev = 0; i_dev < num_devices; i_dev++) 
@@ -401,12 +324,6 @@ extern "C" void joseph3d_fwd_cuda(float *h_xstart,
     cudaMemcpyAsync(d_xend[i_dev], h_xend + 3*dev_offset, 3*proj_bytes_dev, 
                     cudaMemcpyHostToDevice);
    
-    error = cudaMalloc(&d_img[i_dev], img_bytes);
-    if (error != cudaSuccess){
-        printf("cudaMalloc returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
-        exit(EXIT_FAILURE);}
-    cudaMemcpyAsync(d_img[i_dev], h_img, img_bytes, cudaMemcpyHostToDevice);
-
     error = cudaMalloc(&d_img_origin[i_dev], 3*sizeof(float));
     if (error != cudaSuccess){
         printf("cudaMalloc returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
@@ -428,7 +345,7 @@ extern "C" void joseph3d_fwd_cuda(float *h_xstart,
 
 
     // call the kernel
-    joseph3d_fwd_cuda_kernel<<<grid,block>>>(d_xstart[i_dev], d_xend[i_dev], d_img[i_dev], 
+    joseph3d_fwd_cuda_kernel<<<grid,block>>>(d_xstart[i_dev], d_xend[i_dev], texImg[i_dev], 
                                              d_img_origin[i_dev], d_voxsize[i_dev], 
                                              d_p[i_dev], dev_nlors, d_img_dim[i_dev]); 
 
@@ -439,9 +356,12 @@ extern "C" void joseph3d_fwd_cuda(float *h_xstart,
     cudaFree(d_p[i_dev]);
     cudaFree(d_xstart[i_dev]);
     cudaFree(d_xend[i_dev]);
-    cudaFree(d_img[i_dev]);
     cudaFree(d_img_origin[i_dev]);
     cudaFree(d_voxsize[i_dev]);
+
+    // deallocate texture object and 3d cuda image arrays
+    cudaDestroyTextureObject(texImg[i_dev]);
+    cudaFreeArray(d_cuArrTex[i_dev]);
   }
 
   // make sure that all devices are done before leaving
