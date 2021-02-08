@@ -34,7 +34,8 @@ extern "C" __global__ void add_to_first_kernel(float* a, float* b, unsigned long
 
 extern "C" void CreateTextureInterp(float* imagedata, int* img_dim, cudaArray** d_cuArrTex, cudaTextureObject_t *texImage, bool allocate, int num_devices)
 {
-    const cudaExtent extent = make_cudaExtent(img_dim[0], img_dim[1], img_dim[2]);
+    //const cudaExtent extent = make_cudaExtent(img_dim[0], img_dim[1], img_dim[2]);
+    const cudaExtent extent = make_cudaExtent(img_dim[2], img_dim[1], img_dim[0]);
     if(allocate){
         
         for (int dev = 0; dev < num_devices; dev++){

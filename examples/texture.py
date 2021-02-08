@@ -26,17 +26,18 @@ lib_parallelproj_cuda = npct.load_library(os.path.basename(lib_parallelproj_cuda
                                           os.path.dirname(lib_parallelproj_cuda_fname))
 
 lib_parallelproj_cuda.texture_test.restype  = None
-lib_parallelproj_cuda.texture_test.argtypes = [ar_1d_single, ar_1d_single, ar_1d_int, ctypes.c_int]
+lib_parallelproj_cuda.texture_test.argtypes = [ar_1d_single, ar_1d_single, ar_1d_int]
 
 #-------------------------------------------------------------------------------------------------------
 
 
-img = np.random.rand(100,110,120).astype(np.float32)
-img[20:50,40:80,80:100] = 1
+#img = np.random.rand(61,117,219).astype(np.float32)
+img = np.zeros((70,110,130), dtype = np.float32)
+img[20:50,40:80,80:100] = 2.3
 
 out   = np.zeros(img.shape, dtype = np.float32).flatten()
 shape = np.array(img.shape)
 
-lib_parallelproj_cuda.texture_test(img.flatten(), out, shape, 1)
+lib_parallelproj_cuda.texture_test(img.flatten(), out, shape)
 
 out = out.reshape(shape)
