@@ -387,7 +387,7 @@ __global__ void joseph3d_fwd_tof_lm_cuda_kernel(float *xstart,
  *  @param h_xend   array of shape [3*nlors] with the coordinates of the end   points of the LORs.
  *                  The start coordinates of the n-th LOR are at xstart[n*3 + i] with i = 0,1,2 
  *  @param h_img    array of shape [n0*n1*n2] containing the 3D image to be projected.
- *                  The pixel [i,j,k] ist stored at [n1*n2+i + n2*k + j].
+ *                  The pixel [i,j,k] ist stored at [n1*n2*i + n2*j + k].
  *  @param h_img_origin  array [x0_0,x0_1,x0_2] of coordinates of the center of the [0,0,0] voxel
  *  @param h_voxsize     array [vs0, vs1, vs2] of the voxel sizes
  *  @param h_p           array of length nlors (output) used to store the projections
@@ -549,6 +549,7 @@ extern "C" void joseph3d_fwd_tof_lm_cuda(float *h_xstart,
     cudaFree(d_xstart[i_dev]);
     cudaFree(d_xend[i_dev]);
     cudaFree(d_img_origin[i_dev]);
+    cudaFree(d_img_dim[i_dev]);
     cudaFree(d_voxsize[i_dev]);
 
     // deallocate TOF memory on device
