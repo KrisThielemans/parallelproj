@@ -21,12 +21,12 @@ __global__ void transformKernel(cudaTextureObject_t texObj,
       if(i2 < n2)
       {
         // don't forget the 0.5 offset to address the "center"
-        t0 = (float)i0 + 0.5f;
-        t1 = (float)i1 + 0.5f;
-        t2 = (float)i2 + 0.5f;
+        t0 = (float)i0; + 0.5f;
+        t1 = (float)i1; + 0.5f;
+        t2 = (float)i2; + 0.5f;
         // don't forget that axis are reverted in tex object
         // due to differences in underlying memory layout
-        output[i0*n1*n2 + i1*n2 + i2] = tex3D<float>(texObj, t2, t1, t0);
+        output[i0 + i1*n0 + i2*n0*n1] = tex3D<float>(texObj, t0, t1, t2);
       }
     }
   }
@@ -40,8 +40,9 @@ extern "C" void texture_test(float *h_img,
                              float *h_output,
                              int *h_img_dim)
 {
-  int deviceCount = 1;
+  printf("Element (1,2,3): %f", h_img[1 + 2*h_img_dim[0] + 3*h_img_dim[0]*h_img_dim[1]]);
 
+  int deviceCount = 1;
   unsigned long long nvox = h_img_dim[0]*h_img_dim[1]*h_img_dim[2];
 
   // create output device array

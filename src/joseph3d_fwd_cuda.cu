@@ -137,7 +137,8 @@ __global__ void joseph3d_fwd_cuda_kernel(float *xstart,
   
           // texture memory to get interpolated value
           // don't forget to add the 0.5f voxel offset
-          toAdd = tex3D<float>(img, ((x_pr2 - img_origin2)/voxsize2) + 0.5f, ((x_pr1 - img_origin1)/voxsize1) + 0.5f, float(i0) + 0.5f);
+          //toAdd = tex3D<float>(img, ((x_pr2 - img_origin2)/voxsize2) + 0.5f, ((x_pr1 - img_origin1)/voxsize1) + 0.5f, float(i0) + 0.5f);
+          toAdd = tex3D<float>(img, float(i0) + 0.5f, ((x_pr1 - img_origin1)/voxsize1) + 0.5f, ((x_pr2 - img_origin2)/voxsize2) + 0.5f);
 
           if(toAdd != 0){p[i] += (cf * toAdd);}
         }
@@ -175,7 +176,8 @@ __global__ void joseph3d_fwd_cuda_kernel(float *xstart,
   
           // texture memory to get interpolated value
           // don't forget to add the 0.5f voxel offset
-          toAdd = tex3D<float>(img, ((x_pr2 - img_origin2)/voxsize2) + 0.5f, (float)i1 + 0.5f, ((x_pr0 - img_origin0)/voxsize0) + 0.5f);
+          //toAdd = tex3D<float>(img, ((x_pr2 - img_origin2)/voxsize2) + 0.5f, (float)i1 + 0.5f, ((x_pr0 - img_origin0)/voxsize0) + 0.5f);
+          toAdd = tex3D<float>(img, ((x_pr0 - img_origin0)/voxsize0) + 0.5f, (float)i1 + 0.5f, ((x_pr2 - img_origin2)/voxsize2) + 0.5f);
 
           if(toAdd != 0){p[i] += (cf * toAdd);}
         }
@@ -213,7 +215,8 @@ __global__ void joseph3d_fwd_cuda_kernel(float *xstart,
   
           // texture memory to get interpolated value
           // don't forget to add the 0.5f voxel offset
-          toAdd = tex3D<float>(img, (float)i2 + 0.5f, ((x_pr1 - img_origin1)/voxsize1) + 0.5f, ((x_pr0 - img_origin0)/voxsize0) + 0.5f);
+          //toAdd = tex3D<float>(img, (float)i2 + 0.5f, ((x_pr1 - img_origin1)/voxsize1) + 0.5f, ((x_pr0 - img_origin0)/voxsize0) + 0.5f);
+          toAdd = tex3D<float>(img, ((x_pr0 - img_origin0)/voxsize0) + 0.5f, ((x_pr1 - img_origin1)/voxsize1) + 0.5f, (float)i2 + 0.5f);
 
           if(toAdd != 0){p[i] += (cf * toAdd);}
         }

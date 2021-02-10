@@ -30,14 +30,15 @@ lib_parallelproj_cuda.texture_test.argtypes = [ar_1d_single, ar_1d_single, ar_1d
 
 #-------------------------------------------------------------------------------------------------------
 
+order = 'F'
 
-#img = np.random.rand(61,117,219).astype(np.float32)
-img = np.zeros((70,110,130), dtype = np.float32)
+img = np.zeros((70,110,130), dtype = np.float32, order = order)
 img[20:50,40:80,80:100] = 2.3
+img[1,2,3] = 0.42
 
-out   = np.zeros(img.shape, dtype = np.float32).flatten()
+out   = np.zeros(img.shape, dtype = np.float32, order = order).ravel(order = order)
 shape = np.array(img.shape)
 
-lib_parallelproj_cuda.texture_test(img.flatten(), out, shape)
+lib_parallelproj_cuda.texture_test(img.ravel(order = order), out, shape)
 
-out = out.reshape(shape)
+out = out.reshape(shape, order = order)
